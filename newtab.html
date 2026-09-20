@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0B0B0D" />
+    <title>New Tab</title>
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="icons/icon32.png" type="image/png" sizes="32x32" />
+    <link rel="stylesheet" href="newtab.css" />
+  </head>
+  <body>
+    <div class="world">
+      <div id="backdrop-a" class="backdrop" aria-hidden="true"></div>
+      <div id="backdrop-b" class="backdrop" aria-hidden="true"></div>
+      <div id="vignette" aria-hidden="true"></div>
+      <div id="grain" aria-hidden="true"></div>
+      <div class="frame" aria-hidden="true">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+      </div>
+
+      <header class="topbar">
+        <div class="greeting-block">
+          <span id="greeting-jp" class="jp-label">夜</span>
+          <span id="greeting">The night is long.</span>
+        </div>
+        <div class="hud-right">
+          <div class="date-block">
+            <time id="date-en"></time>
+            <span id="date-jp"></span>
+          </div>
+          <div id="clock" class="clock">00:00</div>
+        </div>
+      </header>
+
+      <button type="button" id="speed-test" class="speed-test is-idle" aria-label="Run speed test">
+        <span class="speed-kicker"><span class="jp-label">速</span> <span id="speed-kicker-text">Speed</span></span>
+        <span id="speed-idle" class="speed-idle">Tap to test</span>
+        <span class="speed-chart-wrap">
+          <svg id="speed-chart" class="speed-chart" viewBox="0 0 720 192" aria-hidden="true">
+            <line class="speed-chart-base" x1="0" y1="96" x2="720" y2="96" />
+            <path id="speed-fill-down" class="speed-chart-fill is-down" d="" />
+            <path id="speed-fill-up" class="speed-chart-fill is-up" d="" />
+            <path id="speed-fill-ping" class="speed-chart-fill is-ping" d="" />
+            <path id="speed-line-down" class="speed-chart-line is-down" d="" />
+            <path id="speed-line-up" class="speed-chart-line is-up" d="" />
+            <path id="speed-line-ping" class="speed-chart-line is-ping" d="" />
+            <g id="speed-tip-down" class="speed-chart-tip is-down hidden">
+              <circle class="speed-chart-halo" r="14" />
+              <circle class="speed-chart-dot" r="4.5" />
+            </g>
+            <g id="speed-tip-up" class="speed-chart-tip is-up hidden">
+              <circle class="speed-chart-halo" r="14" />
+              <circle class="speed-chart-dot" r="4.5" />
+            </g>
+            <g id="speed-tip-ping" class="speed-chart-tip is-ping hidden">
+              <circle class="speed-chart-halo" r="14" />
+              <circle class="speed-chart-dot" r="4.5" />
+            </g>
+          </svg>
+        </span>
+        <span id="speed-stats" class="speed-stats">
+          <span class="speed-stat is-down">
+            <b id="speed-down"></b>
+            <small>down</small>
+          </span>
+          <span class="speed-stat is-up">
+            <b id="speed-up"></b>
+            <small>up</small>
+          </span>
+          <span class="speed-stat is-ping">
+            <b id="speed-ping"></b>
+            <small>ping</small>
+          </span>
+        </span>
+      </button>
+
+      <aside class="left-rail">
+        <nav id="dock" class="dock" aria-label="Shortcuts"></nav>
+        <button type="button" id="search-trigger" class="search-trigger" title="Search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.25" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M15.2 15.2 L20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"/>
+          </svg>
+          <span class="jp-label">探索</span>
+        </button>
+      </aside>
+
+      <aside class="right-rail">
+        <div id="credit-card" class="credit-card hidden" role="dialog" aria-label="About">
+          <p class="kicker"><span class="jp-label">作</span>Created by</p>
+          <p class="credit-line">Ashutosh Dubey</p>
+        </div>
+        <button type="button" id="open-credit" class="credit-trigger" title="About" aria-label="About" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" stroke-linejoin="miter"/>
+          </svg>
+        </button>
+      </aside>
+
+      <button type="button" id="notes-preview" class="notes-preview">
+        <span class="notes-kicker"><span class="jp-label">記</span> <span id="notes-preview-kicker">Notes</span></span>
+        <p id="notes-preview-title" class="hidden"></p>
+        <p id="notes-preview-text">Write a line…</p>
+      </button>
+
+      <div class="quote-col">
+        <blockquote id="quote" class="quote" title="Another quote">
+          <p id="quote-en"></p>
+          <cite id="quote-source"></cite>
+        </blockquote>
+      </div>
+
+      <footer id="controls" class="controls visible">
+        <button type="button" id="another" title="Another wallpaper">
+          <span class="jp-label">次</span> Shuffle
+        </button>
+        <button type="button" id="change-folder" title="Pick a different folder">
+          Folder
+        </button>
+        <div class="controls-stack">
+          <button type="button" id="open-keys" class="keys-fab" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false">
+            ?
+          </button>
+          <button type="button" id="open-settings" title="Settings">
+            <span class="jp-label">設定</span> Settings
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <div id="loader" class="loader" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <div id="search-overlay" class="search-overlay" hidden>
+      <button type="button" id="search-frost" class="search-frost" aria-label="Close search"></button>
+      <form id="search-form" autocomplete="off">
+        <label class="search-kicker" for="search-input"
+          ><span class="jp-label">探索</span> Search</label
+        >
+        <input
+          id="search-input"
+          name="q"
+          type="text"
+          placeholder="Search the night…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </form>
+    </div>
+
+    <aside id="notes-pad" class="notes-pad hidden" aria-label="Notes">
+      <header class="notes-head">
+        <p class="kicker"><span class="jp-label">記</span> Notes</p>
+        <h2>What stays</h2>
+        <button type="button" id="notes-close" class="ghost" aria-label="Close">
+          Esc
+        </button>
+      </header>
+      <div class="notes-tools">
+        <button type="button" id="notes-search-toggle" class="ghost-stamp">
+          Search
+        </button>
+        <button type="button" id="notes-filter-toggle" class="ghost-stamp">
+          Filter
+        </button>
+      </div>
+      <div id="notes-search-row" class="notes-tool-row hidden">
+        <input
+          id="notes-search"
+          type="search"
+          placeholder="Search title, tag, or line…"
+        />
+      </div>
+      <div id="notes-filter-row" class="notes-tool-row hidden">
+        <div class="notes-filter">
+          <button
+            type="button"
+            id="notes-filter-btn"
+            class="notes-filter-btn"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Filter by tag"
+          >
+            <span id="notes-filter-label">All tags</span>
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M2.2 4.2 L6 8 L9.8 4.2" fill="none" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+          </button>
+          <ul id="notes-filter-menu" class="notes-filter-menu hidden" role="listbox"></ul>
+        </div>
+      </div>
+      <ul id="notes-list" class="notes-list"></ul>
+      <form id="notes-form" class="notes-form" autocomplete="off">
+        <div class="notes-fields">
+          <input id="notes-title" type="text" maxlength="72" placeholder="Title" />
+          <input id="notes-tag" type="text" maxlength="24" placeholder="Tag" />
+        </div>
+        <textarea
+          id="notes-input"
+          maxlength="480"
+          rows="4"
+          placeholder="A line worth keeping…"
+        ></textarea>
+        <button type="submit" class="stamp">Ink</button>
+      </form>
+    </aside>
+
+    <div id="scrim" class="scrim hidden"></div>
+
+    <aside id="settings" class="drawer hidden" aria-label="Settings">
+      <header class="drawer-head">
+        <p class="kicker"><span class="jp-label">設定</span> After hours</p>
+        <h2>Settings</h2>
+        <button type="button" id="close-settings" class="ghost" aria-label="Close">
+          Esc
+        </button>
+      </header>
+
+      <section>
+        <h3>Folder</h3>
+        <button type="button" id="settings-folder" class="stamp ghost-stamp">
+          Relock wallpaper folder
+        </button>
+      </section>
+
+      <section>
+        <h3>Clock</h3>
+        <div class="choice-row">
+          <label class="choice"
+            ><input type="radio" name="clock-format" value="24" /> 24h</label
+          >
+          <label class="choice"
+            ><input type="radio" name="clock-format" value="12" /> 12h</label
+          >
+        </div>
+      </section>
+
+      <section>
+        <h3>Search</h3>
+        <select id="search-engine">
+          <option value="google">Google</option>
+          <option value="ddg">DuckDuckGo</option>
+          <option value="youtube">YouTube</option>
+          <option value="github">GitHub</option>
+        </select>
+      </section>
+
+      <section>
+        <h3>Overlay</h3>
+        <label class="range-label" for="overlay-strength"
+          >Vignette <span id="overlay-value">45</span></label
+        >
+        <input
+          id="overlay-strength"
+          type="range"
+          min="20"
+          max="70"
+          step="1"
+          value="45"
+        />
+        <label class="choice"
+          ><input type="checkbox" id="grain-toggle" /> Film grain</label
+        >
+      </section>
+
+      <section>
+        <h3>Shortcuts</h3>
+        <p class="hint">Drag tiles to reorder. Click a row to edit.</p>
+        <div id="shortcut-editor-list" class="shortcut-editor-list"></div>
+      </section>
+
+      <p class="hint keys-hint">Press <kbd>?</kbd> or the corner mark for keyboard legend.</p>
+    </aside>
+
+    <div
+      id="shortcut-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-labelledby="shortcut-modal-title"
+    >
+      <h3 id="shortcut-modal-title">Shortcut</h3>
+      <label
+        >Label
+        <input id="shortcut-label" type="text" maxlength="24" />
+      </label>
+      <label
+        >URL
+        <input id="shortcut-url" type="url" placeholder="https://" />
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="shortcut-delete" class="ghost-stamp danger">
+          Clear
+        </button>
+        <button type="button" id="shortcut-save" class="stamp">Save</button>
+      </div>
+    </div>
+
+    <div id="keys-overlay" class="help hidden" role="dialog" aria-label="Keyboard">
+      <p class="kicker"><span class="jp-label">鍵</span> Keys</p>
+      <h2>Move without the mouse</h2>
+      <ul>
+        <li>
+          <span class="keys"><kbd>Space</kbd><span class="sep">or</span><kbd>/</kbd><span class="sep">or</span><kbd>Ctrl</kbd><span class="sep">+</span><kbd>K</kbd></span>
+          <span>Open search</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>W</kbd><span class="sep">or</span><kbd>R</kbd></span>
+          <span>Shuffle wallpaper</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>Q</kbd></span>
+          <span>Another quote</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>T</kbd></span>
+          <span>Speed test</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>N</kbd></span>
+          <span>Notes</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>S</kbd></span>
+          <span>Settings</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>1</kbd><span class="sep">–</span><kbd>6</kbd></span>
+          <span>Open shortcut</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>?</kbd></span>
+          <span>This legend</span>
+        </li>
+        <li>
+          <span class="keys"><kbd>Esc</kbd></span>
+          <span>Close search / overlays</span>
+        </li>
+      </ul>
+    </div>
+
+    <script type="module" src="newtab.js"></script>
+  </body>
+</html>
