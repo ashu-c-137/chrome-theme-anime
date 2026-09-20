@@ -1,19 +1,26 @@
 export function initCredit() {
+  const rail = document.querySelector(".right-rail");
   const card = document.getElementById("credit-card");
   const btn = document.getElementById("open-credit");
 
   function isOpen() {
-    return !card.classList.contains("hidden");
+    return rail.classList.contains("is-open");
   }
 
   function open() {
-    card.classList.remove("hidden");
+    rail.classList.add("is-open");
     btn.setAttribute("aria-expanded", "true");
+    btn.setAttribute("aria-label", "Close");
+    btn.title = "Close";
+    card.setAttribute("aria-hidden", "false");
   }
 
   function close() {
-    card.classList.add("hidden");
+    rail.classList.remove("is-open");
     btn.setAttribute("aria-expanded", "false");
+    btn.setAttribute("aria-label", "About");
+    btn.title = "About";
+    card.setAttribute("aria-hidden", "true");
   }
 
   function toggle() {

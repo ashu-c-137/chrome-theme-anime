@@ -91,14 +91,22 @@
       </aside>
 
       <aside class="right-rail">
-        <div id="credit-card" class="credit-card hidden" role="dialog" aria-label="About">
-          <p class="kicker"><span class="jp-label">作</span>Created by</p>
-          <p class="credit-line">Ashutosh Dubey</p>
+        <div class="credit-slot">
+          <div id="credit-card" class="credit-card" role="dialog" aria-label="About" aria-hidden="true">
+            <p class="kicker"><span class="jp-label">作</span>Created by</p>
+            <p class="credit-line">Ashutosh Dubey</p>
+          </div>
         </div>
-        <button type="button" id="open-credit" class="credit-trigger" title="About" aria-label="About" aria-expanded="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" stroke-linejoin="miter"/>
-          </svg>
+        <button type="button" id="open-credit" class="credit-trigger" title="About" aria-label="About" aria-expanded="false" aria-controls="credit-card">
+          <span class="credit-glyph">
+            <svg class="credit-icon is-chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14.5 5.5 L8 12 L14.5 18.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg class="credit-icon is-close" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 7 L17 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+              <path d="M17 7 L7 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+            </svg>
+          </span>
         </button>
       </aside>
 
