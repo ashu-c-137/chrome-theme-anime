@@ -2,6 +2,8 @@ const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|avif)$/i;
 const DB_NAME = "random-wallpaper-newtab";
 const STORE = "handles";
 const HANDLE_KEY = "wallpaperDir";
+const CACHE_KEY = "lastWallpaper";
+const PICKER_ID = "noir-pulse-wallpapers";
 const FADE_MS = 400;
 
 export function initWallpaper({
@@ -14,12 +16,14 @@ export function initWallpaper({
   const layerA = document.getElementById("backdrop-a");
   const layerB = document.getElementById("backdrop-b");
   const loader = document.getElementById("loader");
+  const folderBtnSet = new Set(changeFolderBtns.filter(Boolean));
 
   let front = layerA;
   let back = layerB;
   let currentObjectUrl = null;
   let pendingRevoke = null;
   let ready = false;
+  let unlocking = false;
   let history = settings.wallpaperHistory.slice();
 
   function openDb() {
@@ -28,37 +32,79 @@ export function initWallpaper({
       req.onerror = () => reject(req.error);
       req.onsuccess = () => resolve(req.result);
       req.onupgradeneeded = () => {
-        req.result.createObjectStore(STORE);
+        if (!req.result.objectStoreNames.contains(STORE)) {
+          req.result.createObjectStore(STORE);
+        }
       };
     });
   }
 
-  async function saveDirHandle(handle) {
+  async function idbPut(key, value) {
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(handle, HANDLE_KEY);
+      tx.objectStore(STORE).put(value, key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   }
 
-  async function loadDirHandle() {
+  async function idbGet(key) {
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(HANDLE_KEY);
+      const req = tx.objectStore(STORE).get(key);
       req.onsuccess = () => resolve(req.result ?? null);
       req.onerror = () => reject(req.error);
     });
   }
 
-  async function ensureReadPermission(handle) {
-    const opts = { mode: "read" };
-    if ((await handle.queryPermission(opts)) === "granted") {
-      return true;
+  async function saveDirHandle(handle) {
+    await idbPut(HANDLE_KEY, handle);
+  }
+
+  async function loadDirHandle() {
+    try {
+      return await idbGet(HANDLE_KEY);
+    } catch {
+      return null;
     }
-    return (await handle.requestPermission(opts)) === "granted";
+  }
+
+  async function saveCachedWallpaper(file) {
+    const buffer = await file.arrayBuffer();
+    await idbPut(CACHE_KEY, {
+      buffer,
+      type: file.type || "image/jpeg",
+      name: file.name || "",
+    });
+  }
+
+  async function loadCachedWallpaper() {
+    try {
+      const cached = await idbGet(CACHE_KEY);
+      if (!cached?.buffer) {
+        return null;
+      }
+      return new Blob([cached.buffer], { type: cached.type || "image/jpeg" });
+    } catch {
+      return null;
+    }
+  }
+
+  async function ensureReadPermission(handle, allowPrompt) {
+    const opts = { mode: "read" };
+    try {
+      if ((await handle.queryPermission(opts)) === "granted") {
+        return true;
+      }
+      if (!allowPrompt) {
+        return false;
+      }
+      return (await handle.requestPermission(opts)) === "granted";
+    } catch {
+      return false;
+    }
   }
 
   async function collectImages(dirHandle, out) {
@@ -122,6 +168,47 @@ export function initWallpaper({
     await saveSettings({ wallpaperHistory: history });
   }
 
+  async function paintWallpaper(file, { fade } = { fade: true }) {
+    const nextUrl = URL.createObjectURL(file);
+    await decodeImage(nextUrl);
+
+    const target = fade ? back : front;
+    target.style.backgroundImage = `url("${nextUrl}")`;
+    target.classList.add("visible");
+    target.classList.remove("dim");
+
+    if (fade) {
+      front.classList.remove("visible");
+      const outgoing = currentObjectUrl;
+      currentObjectUrl = nextUrl;
+      const outgoingLayer = front;
+      front = back;
+      back = outgoingLayer;
+      window.clearTimeout(pendingRevoke);
+      pendingRevoke = window.setTimeout(() => {
+        if (outgoing) {
+          URL.revokeObjectURL(outgoing);
+        }
+      }, FADE_MS);
+    } else {
+      const outgoing = currentObjectUrl;
+      currentObjectUrl = nextUrl;
+      if (outgoing) {
+        URL.revokeObjectURL(outgoing);
+      }
+    }
+  }
+
+  async function showCachedWallpaper() {
+    const blob = await loadCachedWallpaper();
+    if (!blob) {
+      return false;
+    }
+    await paintWallpaper(blob, { fade: false });
+    revealHud();
+    return true;
+  }
+
   async function showRandomWallpaper(dirHandle) {
     const images = await listImageFiles(dirHandle);
     if (images.length === 0) {
@@ -131,27 +218,12 @@ export function initWallpaper({
 
     const pick = pickFrom(images);
     const file = await pick.getFile();
-    const nextUrl = URL.createObjectURL(file);
-    await decodeImage(nextUrl);
-
-    back.style.backgroundImage = `url("${nextUrl}")`;
-    back.classList.add("visible");
-    back.classList.remove("dim");
-    front.classList.remove("visible");
-
-    const outgoing = currentObjectUrl;
-    currentObjectUrl = nextUrl;
-    const outgoingLayer = front;
-    front = back;
-    back = outgoingLayer;
-
-    window.clearTimeout(pendingRevoke);
-    pendingRevoke = window.setTimeout(() => {
-      if (outgoing) {
-        URL.revokeObjectURL(outgoing);
-      }
-    }, FADE_MS);
-
+    await paintWallpaper(file, { fade: Boolean(currentObjectUrl) });
+    try {
+      await saveCachedWallpaper(file);
+    } catch {
+      /* cache is best-effort */
+    }
     await remember(pick.name);
     revealHud();
   }
@@ -162,17 +234,65 @@ export function initWallpaper({
     }
 
     try {
-      const handle = await window.showDirectoryPicker({ mode: "read" });
+      const previous = await loadDirHandle();
+      const options = { id: PICKER_ID, mode: "read" };
+      if (previous) {
+        options.startIn = previous;
+      }
+      const handle = await window.showDirectoryPicker(options);
+      try {
+        await handle.requestPermission({ mode: "read" });
+      } catch {
+        /* already granted by the picker */
+      }
       await saveDirHandle(handle);
       history = [];
       await saveSettings({ wallpaperHistory: [] });
       return handle;
     } catch (err) {
-      if (err.name === "AbortError") {
+      if (err?.name === "AbortError") {
         return null;
       }
       return null;
     }
+  }
+
+  async function useFolder(handle, allowPrompt) {
+    if (!(await ensureReadPermission(handle, allowPrompt))) {
+      return false;
+    }
+    try {
+      await showRandomWallpaper(handle);
+      await saveDirHandle(handle);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function armPermissionUnlock(handle) {
+    const onGesture = async (event) => {
+      if (unlocking) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof Node && [...folderBtnSet].some((btn) => btn.contains(target))) {
+        return;
+      }
+
+      unlocking = true;
+      window.removeEventListener("pointerdown", onGesture, true);
+      window.removeEventListener("keydown", onGesture, true);
+
+      const restored = await useFolder(handle, true);
+      unlocking = false;
+      if (!restored) {
+        armPermissionUnlock(handle);
+      }
+    };
+
+    window.addEventListener("pointerdown", onGesture, true);
+    window.addEventListener("keydown", onGesture, true);
   }
 
   async function runWithSavedFolder() {
@@ -182,17 +302,11 @@ export function initWallpaper({
       return;
     }
 
-    const allowed = await ensureReadPermission(handle);
-    if (!allowed) {
-      revealHud();
+    if (await useFolder(handle, true)) {
       return;
     }
 
-    try {
-      await showRandomWallpaper(handle);
-    } catch {
-      revealHud();
-    }
+    revealHud();
   }
 
   async function lockFolder() {
@@ -202,7 +316,38 @@ export function initWallpaper({
     }
   }
 
-  for (const btn of changeFolderBtns) {
+  async function boot() {
+    try {
+      await navigator.storage?.persist?.();
+    } catch {
+      /* ignore */
+    }
+
+    const handle = await loadDirHandle();
+    const cached = await showCachedWallpaper();
+
+    if (!handle) {
+      if (!cached) {
+        revealHud();
+      }
+      return;
+    }
+
+    if (await useFolder(handle, false)) {
+      return;
+    }
+
+    if (await useFolder(handle, true)) {
+      return;
+    }
+
+    if (!cached) {
+      revealHud();
+    }
+    armPermissionUnlock(handle);
+  }
+
+  for (const btn of folderBtnSet) {
     btn.addEventListener("click", () => {
       lockFolder();
     });
@@ -212,7 +357,7 @@ export function initWallpaper({
     runWithSavedFolder();
   });
 
-  runWithSavedFolder();
+  boot();
 
   return {
     shuffle: runWithSavedFolder,
