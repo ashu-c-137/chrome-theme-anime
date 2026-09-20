@@ -52,7 +52,20 @@ async function publish(data) {
       });
       return;
     }
-    await commit(api, payload);
+    if (
+      sameSite(existing) &&
+      existing?.title &&
+      payload.title &&
+      payload.title !== existing.title &&
+      Date.now() - Number(existing.updatedAt || 0) < 2500
+    ) {
+      return;
+    }
+    await commit(api, {
+      ...payload,
+      tabId: existing?.tabId,
+      windowId: existing?.windowId,
+    });
     return;
   }
 

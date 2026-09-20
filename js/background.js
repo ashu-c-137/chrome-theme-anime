@@ -89,6 +89,57 @@ function pageToggleMedia() {
   return { playing: null };
 }
 
+function pageNowPlayingSnapshot(previousTitle) {
+  const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const generic = (title) => !title || /^(youtube music|youtube|spotify|soundcloud|netflix)$/i.test(title);
+  const textOf = (node) => {
+    if (!node) {
+      return "";
+    }
+    for (const chunk of [
+      node.shadowRoot?.textContent,
+      node.textContent,
+      node.getAttribute?.("aria-label"),
+      node.getAttribute?.("title"),
+    ]) {
+      const text = clean(chunk);
+      if (text) {
+        return text;
+      }
+    }
+    return "";
+  };
+  const bar = document.querySelector("ytmusic-player-bar");
+  const fromDomTitle =
+    textOf(bar?.querySelector(".content-info-wrapper yt-formatted-string.title")) ||
+    textOf(bar?.querySelector("yt-formatted-string.title")) ||
+    textOf(bar?.querySelector(".title"));
+  const fromDomArtist = (
+    textOf(bar?.querySelector(".content-info-wrapper yt-formatted-string.byline")) ||
+    textOf(bar?.querySelector("yt-formatted-string.byline")) ||
+    textOf(bar?.querySelector(".byline"))
+  )
+    .split("•")[0]
+    .trim();
+  const img = bar?.querySelector("img");
+  const metadata = navigator.mediaSession?.metadata;
+  const previous = clean(previousTitle).toLowerCase();
+  const titles = [metadata?.title, fromDomTitle].map(clean).filter((title) => title && !generic(title));
+  const title = titles.find((item) => item.toLowerCase() !== previous) || titles[0] || "";
+  const artists = [metadata?.artist, fromDomArtist].map(clean).filter(Boolean);
+  const artist = artists.find((item) => item.toLowerCase() !== previous) || artists[0] || "";
+  return {
+    title,
+    artist,
+    artwork: img?.currentSrc || img?.src || metadata?.artwork?.[0]?.src || "",
+    playing: [...document.querySelectorAll("video, audio")].some((el) => !el.paused && !el.ended),
+  };
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function storageApi() {
   return chrome.storage.session || chrome.storage.local;
 }
@@ -108,6 +159,40 @@ async function runInTab(tabId, func, args = []) {
   } catch {
     return null;
   }
+}
+
+async function waitForTrackChange(tabId, previousTitle) {
+  const previous = String(previousTitle || "").trim().toLowerCase();
+  for (let i = 0; i < 10; i += 1) {
+    await delay(200);
+    const snap = await runInTab(tabId, pageNowPlayingSnapshot, [previousTitle || ""]);
+    const title = String(snap?.title || "").trim();
+    if (title && title.toLowerCase() !== previous && !/^(youtube music|youtube)$/i.test(title)) {
+      return snap;
+    }
+  }
+  return runInTab(tabId, pageNowPlayingSnapshot, [previousTitle || ""]);
+}
+
+async function applySnapshot(tabId, windowId, snap) {
+  if (!snap?.title) {
+    return;
+  }
+  const api = storageApi();
+  const stored = (await api.get(NOW_PLAYING_KEY))?.[NOW_PLAYING_KEY];
+  await api.set({
+    [NOW_PLAYING_KEY]: {
+      ...(stored || {}),
+      title: snap.title,
+      artist: snap.artist || stored?.artist || "",
+      artwork: snap.artwork || stored?.artwork || "",
+      playing: typeof snap.playing === "boolean" ? snap.playing : stored?.playing,
+      tabId,
+      windowId,
+      pageTitle: snap.title,
+      updatedAt: Date.now(),
+    },
+  });
 }
 
 async function bindPlayingTab(tab) {
@@ -179,12 +264,12 @@ async function handleControl(action) {
     }
     return resolveNowPlaying();
   }
-  if (action === "next") {
-    await runInTab(tabId, pageClickFirst, [NEXT_SELECTORS]);
-    return resolveNowPlaying();
-  }
-  if (action === "prev") {
-    await runInTab(tabId, pageClickFirst, [PREV_SELECTORS]);
+  if (action === "next" || action === "prev") {
+    await runInTab(tabId, pageClickFirst, [action === "next" ? NEXT_SELECTORS : PREV_SELECTORS]);
+    const snap = await waitForTrackChange(tabId, view.track?.title);
+    if (snap?.title) {
+      await applySnapshot(tabId, view.track?.windowId, snap);
+    }
     return resolveNowPlaying();
   }
   return view;

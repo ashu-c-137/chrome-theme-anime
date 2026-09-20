@@ -6,9 +6,16 @@
     if (!node) {
       return "";
     }
-    return String(node.getAttribute?.("title") || node.textContent || "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const chunks = /yt-formatted-string/i.test(node.tagName || "")
+      ? [node.shadowRoot?.textContent, node.textContent, node.getAttribute?.("title")]
+      : [node.textContent, node.shadowRoot?.textContent, node.getAttribute?.("aria-label"), node.getAttribute?.("title")];
+    for (const chunk of chunks) {
+      const text = String(chunk || "").replace(/\s+/g, " ").trim();
+      if (text) {
+        return text;
+      }
+    }
+    return "";
   }
 
   function isGenericTitle(title) {
@@ -43,10 +50,12 @@
     }
     const bar = document.querySelector("ytmusic-player-bar");
     const title =
+      textOf(bar?.querySelector(".content-info-wrapper yt-formatted-string.title")) ||
       textOf(bar?.querySelector("yt-formatted-string.title")) ||
       textOf(bar?.querySelector(".title")) ||
       textOf(document.querySelector("ytmusic-player-bar .title"));
     const byline =
+      textOf(bar?.querySelector(".content-info-wrapper yt-formatted-string.byline")) ||
       textOf(bar?.querySelector("yt-formatted-string.byline")) ||
       textOf(bar?.querySelector(".byline")) ||
       textOf(document.querySelector("ytmusic-player-bar .byline"));
@@ -87,7 +96,9 @@
       : ytmPlay ?? (playbackState === "playing" || (playbackState !== "paused" && elementPlaying));
     const fromDom = ytMusicFromDom();
     const sessionTitle = metadata?.title || "";
-    const title = fromDom?.title || (!isGenericTitle(sessionTitle) ? sessionTitle : "");
+    const title =
+      (fromDom?.title && !isGenericTitle(fromDom.title) ? fromDom.title : "") ||
+      (!isGenericTitle(sessionTitle) ? sessionTitle : "");
     const artist = fromDom?.artist || metadata?.artist || "";
     const artwork = fromDom?.artwork || artworkSrc(metadata);
     return {
@@ -115,19 +126,39 @@
   document.addEventListener("pause", publish, true);
   document.addEventListener("playing", publish, true);
   document.addEventListener("ended", publish, true);
+  document.addEventListener("loadedmetadata", () => {
+    last = "";
+    publish();
+  }, true);
+  document.addEventListener("emptied", () => {
+    last = "";
+    publish();
+  }, true);
 
   const bar = () => document.querySelector("ytmusic-player-bar");
   const watch = () => {
     const node = bar();
-    if (!node || node.__noirPulseObserved) {
+    if (!node) {
       return;
     }
-    node.__noirPulseObserved = true;
-    new MutationObserver(publish).observe(node, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
+    const observe = (target) => {
+      if (!target || target.__noirPulseObserved) {
+        return;
+      }
+      target.__noirPulseObserved = true;
+      new MutationObserver(publish).observe(target, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+      });
+    };
+    observe(node);
+    node.querySelectorAll("yt-formatted-string.title, yt-formatted-string.byline, .title, .byline").forEach((item) => {
+      observe(item);
+      if (item.shadowRoot) {
+        observe(item.shadowRoot);
+      }
     });
   };
 

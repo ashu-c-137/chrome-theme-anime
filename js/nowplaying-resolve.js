@@ -143,12 +143,25 @@ export async function resolveNowPlaying() {
   const tab = await tabForStored(stored, tabs);
 
   if (stored?.title && (tab || age < KEEP_MS)) {
-    const parsed = stripSiteSuffix(stored.pageTitle || stored.title, stored.url || tab?.url || "");
-    const title = isGenericTitle(stored.title) ? parsed.title : stored.title || parsed.title;
-    const artist = isGenericArtist(stored.artist) ? parsed.artist : stored.artist || parsed.artist;
+    const url = stored.url || tab?.url || "";
+    const parsed = stripSiteSuffix(stored.pageTitle || stored.title, url);
+    const tabParsed = tab?.title ? stripSiteSuffix(tab.title, tab.url || url) : { title: "", artist: "" };
+    let title = isGenericTitle(stored.title) ? parsed.title : stored.title || parsed.title;
+    let artist = isGenericArtist(stored.artist) ? parsed.artist : stored.artist || parsed.artist;
+    if (
+      !isGenericTitle(tabParsed.title) &&
+      tabParsed.title !== title &&
+      !title.startsWith(tabParsed.title) &&
+      !tabParsed.title.startsWith(title)
+    ) {
+      title = tabParsed.title;
+      if (!isGenericArtist(tabParsed.artist)) {
+        artist = tabParsed.artist;
+      }
+    }
     return {
       track: {
-        title: isGenericTitle(title) ? stored.title || parsed.title : title,
+        title: isGenericTitle(title) ? stored.title || parsed.title || tabParsed.title : title,
         artist: isGenericArtist(artist) ? "" : artist,
         artwork: usableArtwork(stored.artwork),
         url: stored.url || tab?.url || "",
