@@ -7,6 +7,42 @@
   const HOST_ID = "noir-pulse-now-playing-host";
   const isExtensionPage = location.protocol === "chrome-extension:";
 
+  function hostOf(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  }
+
+  function mediaSite(url) {
+    const host = hostOf(url);
+    if (host === "youtu.be" || host === "m.youtube.com" || host === "youtube.com") {
+      return "youtube.com";
+    }
+    return host;
+  }
+
+  function isVideoTrack(track) {
+    if (track?.kind === "video") {
+      return true;
+    }
+    const href = String(track?.url || "");
+    if (/music\.youtube\.com/i.test(href)) {
+      return false;
+    }
+    return /(?:youtube\.com|youtu\.be|netflix\.com|twitch\.tv|vimeo\.com)/i.test(href);
+  }
+
+  function isPlayingSourcePage(track) {
+    if (isExtensionPage || !track?.url) {
+      return false;
+    }
+    const here = mediaSite(location.href);
+    const there = mediaSite(track.url);
+    return Boolean(here && there && here === there);
+  }
+
   const styles = `
     :host {
       all: initial;
@@ -62,6 +98,17 @@
       pointer-events: auto;
       visibility: visible;
     }
+    :host-context(body.layout-edit) .island.is-live {
+      outline: 1px dashed rgba(201, 163, 106, 0.62);
+      outline-offset: 8px;
+      cursor: grab;
+    }
+    .island.is-live.is-placed:not(.is-min) {
+      left: var(--place-left, 50%);
+      top: var(--place-top, auto);
+      bottom: auto;
+      transform: none;
+    }
     .island.is-live.is-min {
       left: calc(100% - 16px);
       bottom: 16px;
@@ -111,6 +158,15 @@
       inset: 11px;
       width: 20px;
       height: 20px;
+    }
+    .note .glyph-video {
+      display: none;
+    }
+    .note.is-video .glyph-music {
+      display: none;
+    }
+    .note.is-video .glyph-video {
+      display: unset;
     }
     .art:not(.is-empty) ~ .note {
       display: none;
@@ -225,7 +281,13 @@
     <div class="island" aria-hidden="true">
       <button type="button" class="disc" title="Expand">
         <img class="art is-empty" alt="">
-        <svg class="note" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 18.5a2.5 2.5 0 1 1-2-2.45V7.6l11-2.1v8.45a2.5 2.5 0 1 1-2-2.45V8.15L9 9.95z"/></svg>
+        <svg class="note" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="glyph-music" fill="currentColor" d="M9 18.5a2.5 2.5 0 1 1-2-2.45V7.6l11-2.1v8.45a2.5 2.5 0 1 1-2-2.45V8.15L9 9.95z"/>
+          <g class="glyph-video" fill="currentColor">
+            <path d="M3.75 6.6A2.6 2.6 0 0 1 6.35 4h8.3A2.6 2.6 0 0 1 17.25 6.6v10.8a2.6 2.6 0 0 1-2.6 2.6h-8.3a2.6 2.6 0 0 1-2.6-2.6z"/>
+            <path d="M18.4 8.35 21.5 6.2v11.6l-3.1-2.15z"/>
+          </g>
+        </svg>
       </button>
       <button type="button" class="copy" title="Jump to playing tab">
         <span class="kicker">Now playing</span>
@@ -245,6 +307,8 @@
   const art = shadow.querySelector(".art");
   const titleEl = shadow.querySelector(".title");
   const artistEl = shadow.querySelector(".artist");
+  const kickerEl = shadow.querySelector(".kicker");
+  const note = shadow.querySelector(".note");
   const playBtn = shadow.querySelector(".play");
   const disc = shadow.querySelector(".disc");
   const copy = shadow.querySelector(".copy");
@@ -254,6 +318,36 @@
 
   let lastKey = "";
   let hideTimer = 0;
+  let islandEnabled = true;
+  let placed = null;
+  let placeDrag = null;
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function applyPlaced() {
+    if (!isExtensionPage || !placed || root.classList.contains("is-min")) {
+      root.classList.remove("is-placed");
+      root.style.removeProperty("--place-left");
+      root.style.removeProperty("--place-top");
+      return;
+    }
+    root.classList.add("is-placed");
+    root.style.setProperty("--place-left", `${placed.x * 100}%`);
+    root.style.setProperty("--place-top", `${placed.y * 100}%`);
+  }
+
+  async function readIslandEnabled() {
+    try {
+      const wrap = await chrome.storage.local.get(["features", "layout"]);
+      islandEnabled = wrap.features?.island !== false;
+      placed = wrap.layout?.island || null;
+      applyPlaced();
+    } catch {
+      islandEnabled = true;
+    }
+  }
 
   function mount() {
     if (!document.documentElement.contains(host)) {
@@ -261,23 +355,31 @@
     }
   }
 
+  function hideIsland() {
+    window.clearTimeout(hideTimer);
+    root.classList.remove("is-live", "is-min", "is-placed");
+    root.setAttribute("aria-hidden", "true");
+    lastKey = "";
+  }
+
   function render(view) {
     const track = view?.track;
     const minimized = Boolean(view?.minimized);
+    if (!islandEnabled || isPlayingSourcePage(track)) {
+      hideIsland();
+      return;
+    }
     if (!track?.title) {
-      window.clearTimeout(hideTimer);
-      hideTimer = window.setTimeout(() => {
-        root.classList.remove("is-live", "is-min");
-        root.setAttribute("aria-hidden", "true");
-        lastKey = "";
-      }, 2500);
+      hideIsland();
       return;
     }
 
     window.clearTimeout(hideTimer);
-    const key = `${track.title}|${track.artist}|${track.artwork}|${track.playing}|${minimized}`;
+    const video = isVideoTrack(track);
+    const key = `${track.title}|${track.artist}|${track.artwork}|${track.playing}|${video}|${minimized}`;
     root.classList.add("is-live");
     root.classList.toggle("is-min", minimized);
+    applyPlaced();
     root.setAttribute("aria-hidden", "false");
     if (!root.classList.contains("is-ready")) {
       requestAnimationFrame(() => {
@@ -291,6 +393,8 @@
     lastKey = key;
 
     titleEl.textContent = track.title;
+    kickerEl.textContent = video ? "Watching" : "Now playing";
+    note.classList.toggle("is-video", video);
     artistEl.textContent = track.artist || "";
     artistEl.hidden = !track.artist;
     playBtn.innerHTML = track.playing ? PAUSE : PLAY;
@@ -318,6 +422,11 @@
   }
 
   function onControl(action, event) {
+    if (document.body.classList.contains("layout-edit")) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     control(action);
@@ -340,6 +449,11 @@
 
   shadow.querySelector(".prev").addEventListener("click", (event) => onControl("prev", event));
   playBtn.addEventListener("click", (event) => {
+    if (document.body.classList.contains("layout-edit")) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const willPause = playBtn.title === "Pause";
     playBtn.innerHTML = willPause ? PLAY : PAUSE;
     playBtn.title = willPause ? "Play" : "Pause";
@@ -353,13 +467,80 @@
   copy.addEventListener("click", (event) => onControl("focus", event));
 
   chrome.storage?.onChanged?.addListener((changes, area) => {
-    if (area === "session" && changes.nowPlaying) {
+    if (changes.nowPlaying || (area === "local" && changes.nowPlayingMinimized)) {
       refresh();
     }
-    if (area === "local" && changes.nowPlayingMinimized) {
+    if (area === "local" && changes.features) {
+      islandEnabled = changes.features.newValue?.island !== false;
       refresh();
+    }
+    if (area === "local" && changes.layout) {
+      placed = changes.layout.newValue?.island || null;
+      applyPlaced();
     }
   });
+
+  if (isExtensionPage) {
+    root.addEventListener("pointerdown", (event) => {
+      if (!document.body.classList.contains("layout-edit") || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const box = root.getBoundingClientRect();
+      placeDrag = {
+        pointer: event.pointerId,
+        dx: event.clientX - box.left,
+        dy: event.clientY - box.top,
+        moved: false,
+      };
+      root.setPointerCapture(event.pointerId);
+    });
+    root.addEventListener("pointermove", (event) => {
+      if (!placeDrag || event.pointerId !== placeDrag.pointer) {
+        return;
+      }
+      placeDrag.moved = true;
+      const width = root.offsetWidth || 80;
+      const height = root.offsetHeight || 44;
+      const left = Math.min(Math.max(8, event.clientX - placeDrag.dx), Math.max(8, window.innerWidth - width - 8));
+      const top = Math.min(Math.max(8, event.clientY - placeDrag.dy), Math.max(8, window.innerHeight - height - 8));
+      root.classList.add("is-placed");
+      root.style.setProperty("--place-left", `${left}px`);
+      root.style.setProperty("--place-top", `${top}px`);
+    });
+    const endPlace = async (event) => {
+      if (!placeDrag || event.pointerId !== placeDrag.pointer) {
+        return;
+      }
+      const moved = placeDrag.moved;
+      try {
+        root.releasePointerCapture(placeDrag.pointer);
+      } catch {
+        /* already released */
+      }
+      placeDrag = null;
+      if (!moved) {
+        return;
+      }
+      const box = root.getBoundingClientRect();
+      placed = {
+        x: Math.min(0.92, Math.max(0, box.left / window.innerWidth)),
+        y: Math.min(0.92, Math.max(0, box.top / window.innerHeight)),
+      };
+      applyPlaced();
+      try {
+        const wrap = await chrome.storage.local.get("layout");
+        await chrome.storage.local.set({
+          layout: { ...(wrap.layout || {}), island: placed },
+        });
+      } catch {
+        /* ignore */
+      }
+    };
+    root.addEventListener("pointerup", endPlace);
+    root.addEventListener("pointercancel", endPlace);
+  }
 
   if (document.body) {
     mount();
@@ -367,6 +548,6 @@
     document.addEventListener("DOMContentLoaded", mount, { once: true });
   }
 
-  refresh();
+  readIslandEnabled().then(refresh);
   window.setInterval(refresh, 1500);
 })();

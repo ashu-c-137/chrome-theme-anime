@@ -12,3 +12,4 @@ desktop.ini
 *.log
 .vscode/
 .idea/
+local-user.json

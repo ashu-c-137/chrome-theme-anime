@@ -1,4 +1,5 @@
 import { NOW_PLAYING_KEY, NOW_PLAYING_MIN_KEY, resolveNowPlaying } from "./nowplaying-resolve.js";
+import { captureFirstNameFromTab } from "./profile-name.js";
 
 const NEXT_SELECTORS = [
   "ytmusic-player-bar #next-button",
@@ -293,4 +294,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   return false;
+});
+
+async function clearIfClosed(tabId) {
+  const api = storageApi();
+  const stored = (await api.get(NOW_PLAYING_KEY))?.[NOW_PLAYING_KEY];
+  if (Number(stored?.tabId) !== tabId) {
+    return;
+  }
+  await api.remove(NOW_PLAYING_KEY);
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  clearIfClosed(tabId).catch(() => {});
+});
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete") {
+    return;
+  }
+  captureFirstNameFromTab(tabId, tab?.url).catch(() => {});
 });

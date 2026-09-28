@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, applyAppearance } from "./js/store.js";
+import { loadSettings, saveSettings, applyAppearance, applyFeatures } from "./js/store.js";
 import { initWallpaper } from "./js/wallpaper.js";
 import { initClock } from "./js/clock.js";
 import { initSearch } from "./js/search.js";
@@ -8,12 +8,15 @@ import { initNotes } from "./js/notes.js";
 import { initSpeed } from "./js/speed.js";
 import { initSettings } from "./js/settings.js";
 import { initKeys } from "./js/keys.js";
-import { initCredit } from "./js/credit.js";
+import { initGoogleDock } from "./js/google-dock.js";
+import { initLayout } from "./js/layout.js";
+import { initTour } from "./js/tour.js";
 
 const settings = await loadSettings();
 applyAppearance(settings);
+applyFeatures(settings.features);
 
-const clock = initClock(settings);
+const clock = initClock(settings, saveSettings);
 const search = initSearch(settings);
 const quotes = initQuotes({ settings, saveSettings });
 const notes = initNotes({ settings, saveSettings });
@@ -37,6 +40,8 @@ const settingsUi = initSettings({
   clock,
   search,
 });
-const credit = initCredit();
+const googleDock = initGoogleDock();
+const layout = initLayout({ settings, saveSettings, settingsUi });
+const tour = initTour({ settingsUi, layout });
 
-initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, credit });
+initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout, tour });

@@ -32,9 +32,9 @@ export function initNotes({ settings, saveSettings }) {
   const scrim = document.getElementById("scrim");
 
   let notes = Array.isArray(settings.notes)
-    ? settings.notes.map((note) => ({ ...note }))
+    ? settings.notes.filter((note) => !String(note.id || "").startsWith("keep:")).map((note) => ({ ...note }))
     : [];
-  let pinnedId = settings.pinnedNoteId || "";
+  let pinnedId = String(settings.pinnedNoteId || "").startsWith("keep:") ? "" : settings.pinnedNoteId || "";
   let expandedId = "";
   let query = "";
   let tagFilter = "";
@@ -393,7 +393,32 @@ export function initNotes({ settings, saveSettings }) {
     bodyInput.focus();
   });
 
-  renderPreview();
+  const storedNotes = Array.isArray(settings.notes) ? settings.notes : [];
+  const storedPin = String(settings.pinnedNoteId || "");
+  const droppedKeep =
+    storedNotes.some((note) => String(note.id || "").startsWith("keep:")) ||
+    storedPin.startsWith("keep:");
+  if (droppedKeep) {
+    persist();
+  } else {
+    renderPreview();
+  }
+
+  const syncStore = globalThis.chrome?.storage?.sync;
+  if (syncStore?.get) {
+    syncStore
+      .get(null)
+      .then((all) => {
+        const keys = Object.keys(all || {}).filter(
+          (key) => key === "npKeepMeta" || key.startsWith("npKeepChunk_")
+        );
+        if (keys.length) {
+          syncStore.remove(keys);
+        }
+      })
+      .catch(() => {});
+  }
+  globalThis.chrome?.storage?.local?.remove?.(["keepSync", "deletedNoteIds"]);
 
   return { open, close, isOpen };
 }

@@ -32,6 +32,14 @@ function isGenericArtist(artist) {
   return /^(music\.youtube\.com|youtube\.com|youtu\.be|open\.spotify\.com|spotify\.com)$/i.test(String(artist || "").trim());
 }
 
+function isVideoUrl(url) {
+  const href = String(url || "");
+  if (/music\.youtube\.com/i.test(href)) {
+    return false;
+  }
+  return /(?:youtube\.com|youtu\.be|netflix\.com|twitch\.tv|vimeo\.com)/i.test(href);
+}
+
 export function stripSiteSuffix(title, url) {
   let clean = String(title || "").trim();
   clean = clean
@@ -60,6 +68,10 @@ export function stripSiteSuffix(title, url) {
     if (dash.length >= 2) {
       return { title: dash[0], artist: dash.slice(1).join(" - ") };
     }
+  }
+
+  if (/youtube\.com|youtu\.be/i.test(url) && !/music\.youtube\.com/i.test(url)) {
+    return { title: clean, artist: "" };
   }
 
   return { title: clean, artist: hostFrom(url) };
@@ -115,16 +127,11 @@ async function tabForStored(stored, audible) {
     return pinned;
   }
   if (stored) {
-    const matched =
+    return (
       audible.find((item) => matchesTab(stored, item)) ||
-      audible.find((item) => hostFrom(item.url) === hostFrom(stored.url));
-    if (matched) {
-      return matched;
-    }
-    const byUrl = await tabByUrl(stored.url);
-    if (byUrl) {
-      return byUrl;
-    }
+      audible.find((item) => hostFrom(item.url) === hostFrom(stored.url)) ||
+      null
+    );
   }
   return audible[audible.length - 1] || null;
 }
@@ -142,7 +149,7 @@ export async function resolveNowPlaying() {
   const age = stored ? Date.now() - Number(stored.updatedAt || 0) : Infinity;
   const tab = await tabForStored(stored, tabs);
 
-  if (stored?.title && (tab || age < KEEP_MS)) {
+  if (stored?.title && tab) {
     const url = stored.url || tab?.url || "";
     const parsed = stripSiteSuffix(stored.pageTitle || stored.title, url);
     const tabParsed = tab?.title ? stripSiteSuffix(tab.title, tab.url || url) : { title: "", artist: "" };
@@ -167,7 +174,8 @@ export async function resolveNowPlaying() {
         url: stored.url || tab?.url || "",
         tabId: tab?.id || stored.tabId,
         windowId: tab?.windowId || stored.windowId,
-        playing: age < 2500 ? Boolean(stored.playing) : Boolean(tab?.audible ?? stored.playing),
+        kind: stored.kind === "video" || isVideoUrl(url) ? "video" : stored.kind || "music",
+        playing: age < 1500 ? Boolean(stored.playing) : Boolean(tab?.audible ?? stored.playing),
       },
       minimized,
     };
@@ -186,6 +194,7 @@ export async function resolveNowPlaying() {
         url: tab.url || "",
         tabId: tab.id,
         windowId: tab.windowId,
+        kind: isVideoUrl(tab.url) ? "video" : "music",
         playing: true,
       },
       minimized,

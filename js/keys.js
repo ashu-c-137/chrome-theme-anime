@@ -11,11 +11,19 @@ function typingInField(target) {
   );
 }
 
-export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, credit }) {
+export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout, tour }) {
   window.addEventListener("keydown", (event) => {
+    if (tour?.isActive()) {
+      return;
+    }
     const field = typingInField(event.target);
 
     if (event.key === "Escape") {
+      if (layout?.isEditing?.()) {
+        event.preventDefault();
+        layout.stopEdit();
+        return;
+      }
       if (search.isOpen()) {
         event.preventDefault();
         search.close();
@@ -26,9 +34,9 @@ export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, not
         notes.close();
         return;
       }
-      if (credit.isOpen()) {
+      if (googleDock.isOpen()) {
         event.preventDefault();
-        credit.close();
+        googleDock.close();
         return;
       }
       settingsUi.closeAll();
@@ -69,21 +77,27 @@ export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, not
       return;
     }
 
-    if (event.key === "q" || event.key === "Q") {
+    if ((event.key === "q" || event.key === "Q") && !document.body.classList.contains("hide-quotes")) {
       event.preventDefault();
       quotes.shuffle();
       return;
     }
 
-    if (event.key === "t" || event.key === "T") {
+    if ((event.key === "t" || event.key === "T") && !document.body.classList.contains("hide-speed")) {
       event.preventDefault();
       speed.run();
       return;
     }
 
-    if (event.key === "n" || event.key === "N") {
+    if ((event.key === "n" || event.key === "N") && !document.body.classList.contains("hide-notes")) {
       event.preventDefault();
       notes.open();
+      return;
+    }
+
+    if ((event.key === "g" || event.key === "G") && !document.body.classList.contains("hide-google-dock")) {
+      event.preventDefault();
+      googleDock.toggle();
       return;
     }
 
@@ -99,7 +113,7 @@ export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, not
       return;
     }
 
-    if (/^[1-6]$/.test(event.key)) {
+    if (/^[1-9]$/.test(event.key) && !document.body.classList.contains("hide-shortcuts")) {
       shortcuts.open(Number(event.key) - 1);
     }
   });

@@ -1,3 +1,5 @@
+import { MAX_SHORTCUTS } from "./store.js";
+
 function hostFrom(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -83,25 +85,12 @@ export function initShortcuts({ settings, saveSettings }) {
   let dragFrom = -1;
   let didDrag = false;
 
-  function slots() {
-    const list = shortcuts.slice(0, 6);
-    while (list.length < 6) {
-      list.push({ label: "", url: "", jp: "" });
-    }
-    return list;
-  }
-
   async function moveSlot(from, to) {
-    if (from === to || from < 0 || to < 0) {
+    if (from === to || from < 0 || to < 0 || from >= shortcuts.length || to >= shortcuts.length) {
       return;
     }
-    const next = slots();
-    if (from >= next.length || to >= next.length) {
-      return;
-    }
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    shortcuts = next;
+    const [item] = shortcuts.splice(from, 1);
+    shortcuts.splice(to, 0, item);
     await persist();
   }
 
@@ -109,139 +98,171 @@ export function initShortcuts({ settings, saveSettings }) {
     dock.querySelectorAll(".is-drop").forEach((node) => {
       node.classList.remove("is-drop");
     });
+    editorList.querySelectorAll(".is-drop").forEach((node) => {
+      node.classList.remove("is-drop");
+    });
+  }
+
+  function bindReorder(node, index) {
+    node.draggable = true;
+    node.addEventListener("dragstart", (event) => {
+      if (document.body.classList.contains("layout-edit")) {
+        event.preventDefault();
+        return;
+      }
+      dragFrom = index;
+      didDrag = true;
+      node.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", String(index));
+      const ghost = node.querySelector(".mono");
+      if (ghost) {
+        event.dataTransfer.setDragImage(ghost, 23, 23);
+      }
+    });
+    node.addEventListener("dragend", () => {
+      node.classList.remove("is-dragging");
+      clearDropMarks();
+      dragFrom = -1;
+      window.setTimeout(() => {
+        didDrag = false;
+      }, 80);
+    });
+    node.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (dragFrom === index) {
+        return;
+      }
+      clearDropMarks();
+      node.classList.add("is-drop");
+    });
+    node.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget && node.contains(event.relatedTarget)) {
+        return;
+      }
+      node.classList.remove("is-drop");
+    });
+    node.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearDropMarks();
+      const from = Number(event.dataTransfer.getData("text/plain"));
+      await moveSlot(Number.isFinite(from) ? from : dragFrom, index);
+    });
+  }
+
+  function makeTile(item, index, empty) {
+    const node = document.createElement(empty ? "button" : "a");
+    node.className = `tile${empty ? " empty" : ""}`;
+    node.dataset.index = String(index);
+    if (empty) {
+      node.type = "button";
+      node.title = "Add shortcut";
+      node.draggable = false;
+    } else {
+      node.href = item.url;
+      node.title = item.label || hostFrom(item.url);
+      node.draggable = true;
+    }
+
+    const mono = document.createElement("span");
+    mono.className = "mono";
+    const letter = document.createElement("span");
+    letter.className = "mono-letter";
+    letter.textContent = empty ? "+" : monogram(item.label, item.url);
+    mono.append(letter);
+    if (!empty) {
+      attachIcon(mono, item.url);
+    }
+
+    const name = document.createElement("span");
+    name.className = "tile-name";
+    name.textContent = empty ? "Add" : item.label || hostFrom(item.url);
+    node.append(mono, name);
+
+    node.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openEditor(index);
+    });
+
+    node.addEventListener("click", (event) => {
+      if (didDrag) {
+        event.preventDefault();
+        event.stopPropagation();
+        didDrag = false;
+        return;
+      }
+      if (empty) {
+        openEditor(index);
+      }
+    });
+
+    if (empty) {
+      return node;
+    }
+
+    bindReorder(node, index);
+    return node;
   }
 
   function renderDock() {
     dock.replaceChildren();
-    slots().forEach((item, index) => {
-      const empty = !item.url;
-      const node = document.createElement(empty ? "button" : "a");
-      node.className = `tile${empty ? " empty" : ""}`;
-      node.dataset.index = String(index);
-      node.draggable = true;
-      if (empty) {
-        node.type = "button";
-        node.title = "Add shortcut";
-      } else {
-        node.href = item.url;
-        node.title = item.label || hostFrom(item.url);
-      }
-
-      const mono = document.createElement("span");
-      mono.className = "mono";
-      const letter = document.createElement("span");
-      letter.className = "mono-letter";
-      letter.textContent = empty ? "+" : monogram(item.label, item.url);
-      mono.append(letter);
-      if (!empty) {
-        attachIcon(mono, item.url);
-      }
-
-      const name = document.createElement("span");
-      name.className = "tile-name";
-      name.textContent = empty ? "Add" : item.label || hostFrom(item.url);
-
-      const jp = document.createElement("span");
-      jp.className = "tile-jp";
-      jp.textContent = empty ? "追加" : item.jp || "";
-
-      node.append(mono, name, jp);
-
-      node.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        openEditor(index);
-      });
-
-      node.addEventListener("click", (event) => {
-        if (didDrag) {
-          event.preventDefault();
-          event.stopPropagation();
-          didDrag = false;
-          return;
-        }
-        if (empty) {
-          openEditor(index);
-        }
-      });
-
-      node.addEventListener("dragstart", (event) => {
-        dragFrom = index;
-        didDrag = true;
-        node.classList.add("is-dragging");
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", String(index));
-        const ghost = node.querySelector(".mono");
-        if (ghost) {
-          event.dataTransfer.setDragImage(ghost, 23, 23);
-        }
-      });
-
-      node.addEventListener("dragend", () => {
-        node.classList.remove("is-dragging");
-        clearDropMarks();
-        dragFrom = -1;
-        window.setTimeout(() => {
-          didDrag = false;
-        }, 80);
-      });
-
-      node.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        if (dragFrom === index) {
-          return;
-        }
-        clearDropMarks();
-        node.classList.add("is-drop");
-      });
-
-      node.addEventListener("dragleave", (event) => {
-        if (event.relatedTarget && node.contains(event.relatedTarget)) {
-          return;
-        }
-        node.classList.remove("is-drop");
-      });
-
-      node.addEventListener("drop", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        clearDropMarks();
-        const from = Number(event.dataTransfer.getData("text/plain"));
-        await moveSlot(Number.isFinite(from) ? from : dragFrom, index);
-      });
-
-      dock.append(node);
+    shortcuts.forEach((item, index) => {
+      dock.append(makeTile(item, index, false));
     });
+    if (shortcuts.length < MAX_SHORTCUTS) {
+      dock.append(makeTile({ label: "", url: "" }, shortcuts.length, true));
+    }
   }
 
   function renderEditorList() {
     editorList.replaceChildren();
-    slots().forEach((item, index) => {
+    shortcuts.forEach((item, index) => {
       const row = document.createElement("button");
       row.type = "button";
       row.className = "shortcut-row";
+      row.title = "Drag to reorder";
+      const grip = document.createElement("span");
+      grip.className = "shortcut-grip";
+      grip.setAttribute("aria-hidden", "true");
+      grip.textContent = "⋮⋮";
       const left = document.createElement("span");
       left.className = "shortcut-row-label";
-      if (item.url) {
-        attachIcon(left, item.url);
-      }
+      attachIcon(left, item.url);
       const text = document.createElement("span");
-      text.textContent = item.label || item.url || `Slot ${index + 1}`;
+      text.textContent = item.label || hostFrom(item.url);
       left.append(text);
       const right = document.createElement("small");
-      right.textContent = item.url ? hostFrom(item.url) : "empty";
-      row.append(left, right);
-      row.addEventListener("click", () => openEditor(index));
+      right.textContent = hostFrom(item.url);
+      row.append(grip, left, right);
+      row.addEventListener("click", () => {
+        if (didDrag) {
+          didDrag = false;
+          return;
+        }
+        openEditor(index);
+      });
+      bindReorder(row, index);
       editorList.append(row);
     });
+    if (shortcuts.length < MAX_SHORTCUTS) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "shortcut-row is-add";
+      add.textContent = "Add shortcut";
+      add.addEventListener("click", () => openEditor(shortcuts.length));
+      editorList.append(add);
+    }
   }
 
   function openEditor(index) {
     editingIndex = index;
-    const item = slots()[index];
-    titleEl.textContent = item.url ? `Shortcut ${index + 1}` : "New shortcut";
+    const item = shortcuts[index] || { label: "", url: "" };
+    titleEl.textContent = item.url ? item.label || "Shortcut" : "New shortcut";
     labelInput.value = item.label || "";
     urlInput.value = item.url || "";
+    deleteBtn.hidden = !item.url;
     modal.classList.remove("hidden");
     document.getElementById("scrim").classList.remove("hidden");
     labelInput.focus();
@@ -258,7 +279,10 @@ export function initShortcuts({ settings, saveSettings }) {
   }
 
   async function persist() {
-    await saveSettings({ shortcuts });
+    shortcuts = shortcuts.filter((item) => item.url).slice(0, MAX_SHORTCUTS);
+    await saveSettings({
+      shortcuts: shortcuts.map((item) => ({ label: item.label, url: item.url })),
+    });
     renderDock();
     renderEditorList();
   }
@@ -271,29 +295,33 @@ export function initShortcuts({ settings, saveSettings }) {
     if (!url) {
       return;
     }
-    const next = slots();
-    next[editingIndex] = {
+    const item = {
       label: labelInput.value.trim() || hostFrom(url) || "Link",
       url,
-      jp: next[editingIndex].jp || "",
     };
-    shortcuts = next;
+    if (editingIndex < shortcuts.length) {
+      shortcuts[editingIndex] = item;
+    } else if (shortcuts.length < MAX_SHORTCUTS) {
+      shortcuts.push(item);
+    }
     await persist();
     closeEditor();
   });
 
   deleteBtn.addEventListener("click", async () => {
-    if (editingIndex < 0) {
+    if (editingIndex < 0 || editingIndex >= shortcuts.length) {
+      closeEditor();
       return;
     }
-    const next = slots();
-    next[editingIndex] = { label: "", url: "", jp: "" };
-    shortcuts = next;
+    shortcuts.splice(editingIndex, 1);
     await persist();
     closeEditor();
   });
 
   dock.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  editorList.addEventListener("dragover", (event) => {
     event.preventDefault();
   });
 
@@ -302,11 +330,13 @@ export function initShortcuts({ settings, saveSettings }) {
 
   return {
     open(index) {
-      const item = slots()[index];
+      const item = shortcuts[index];
       if (item?.url) {
         window.location.href = item.url;
-      } else {
-        openEditor(index);
+        return;
+      }
+      if (shortcuts.length < MAX_SHORTCUTS) {
+        openEditor(shortcuts.length);
       }
     },
     closeEditor,

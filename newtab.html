@@ -24,11 +24,11 @@
       </div>
 
       <header class="topbar">
-        <div class="greeting-block">
+        <div class="greeting-block" data-widget="greeting">
           <span id="greeting-jp" class="jp-label">夜</span>
           <span id="greeting">The night is long.</span>
         </div>
-        <div class="hud-right">
+        <div class="hud-right" data-widget="clock">
           <div class="date-block">
             <time id="date-en"></time>
             <span id="date-jp"></span>
@@ -37,7 +37,7 @@
         </div>
       </header>
 
-      <button type="button" id="speed-test" class="speed-test is-idle" aria-label="Run speed test">
+      <button type="button" id="speed-test" class="speed-test is-idle" data-widget="speed" aria-label="Run speed test">
         <span class="speed-kicker"><span class="jp-label">速</span> <span id="speed-kicker-text">Speed</span></span>
         <span id="speed-idle" class="speed-idle">Tap to test</span>
         <span class="speed-chart-wrap">
@@ -79,7 +79,7 @@
         </span>
       </button>
 
-      <aside class="left-rail">
+      <aside class="left-rail" data-widget="shortcuts">
         <nav id="dock" class="dock" aria-label="Shortcuts"></nav>
         <button type="button" id="search-trigger" class="search-trigger" title="Search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -92,12 +92,11 @@
 
       <aside class="right-rail">
         <div class="credit-slot">
-          <div id="credit-card" class="credit-card" role="dialog" aria-label="About" aria-hidden="true">
-            <p class="kicker"><span class="jp-label">作</span>Created by</p>
-            <p class="credit-line">Ashutosh Dubey</p>
-          </div>
+          <nav id="google-dock" class="credit-card g-dock" aria-label="Google apps" aria-hidden="true">
+            <div id="google-dock-grid" class="g-dock-grid"></div>
+          </nav>
         </div>
-        <button type="button" id="open-credit" class="credit-trigger" title="About" aria-label="About" aria-expanded="false" aria-controls="credit-card">
+        <button type="button" id="open-google-dock" class="credit-trigger" title="Google" aria-label="Google apps" aria-expanded="false" aria-controls="google-dock">
           <span class="credit-glyph">
             <svg class="credit-icon is-chevron" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M14.5 5.5 L8 12 L14.5 18.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
@@ -107,16 +106,24 @@
               <path d="M17 7 L7 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
             </svg>
           </span>
+          <span class="google-g" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </span>
         </button>
       </aside>
 
-      <button type="button" id="notes-preview" class="notes-preview">
+      <button type="button" id="notes-preview" class="notes-preview" data-widget="notes">
         <span class="notes-kicker"><span class="jp-label">記</span> <span id="notes-preview-kicker">Notes</span></span>
         <p id="notes-preview-title" class="hidden"></p>
         <p id="notes-preview-text">Write a line…</p>
       </button>
 
-      <div class="quote-col">
+      <div class="quote-col" data-widget="quotes">
         <blockquote id="quote" class="quote" title="Another quote">
           <p id="quote-en"></p>
           <cite id="quote-source"></cite>
@@ -131,7 +138,7 @@
           Folder
         </button>
         <div class="controls-stack">
-          <button type="button" id="open-keys" class="keys-fab" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false">
+          <button type="button" id="open-keys" class="keys-fab" title="Keyboard shortcuts and tutorial" aria-label="Keyboard shortcuts and tutorial" aria-expanded="false">
             ?
           </button>
           <button type="button" id="open-settings" title="Settings">
@@ -145,6 +152,11 @@
       <span></span>
       <span></span>
       <span></span>
+    </div>
+
+    <div id="layout-banner" class="layout-banner hidden" role="status">
+      <p>Drag widgets anywhere. Press Esc or Done when you are finished.</p>
+      <button type="button" id="layout-done" class="stamp">Done</button>
     </div>
 
     <div id="search-overlay" class="search-overlay" hidden>
@@ -232,15 +244,33 @@
         </button>
       </header>
 
-      <section>
+      <section id="settings-section-folder">
         <h3>Folder</h3>
         <button type="button" id="settings-folder" class="stamp ghost-stamp">
           Relock wallpaper folder
         </button>
       </section>
 
-      <section>
+      <section id="settings-section-widgets">
+        <h3>Widgets</h3>
+        <p class="hint">Turn pieces of the new tab on or off. All are on by default.</p>
+        <div id="feature-list" class="feature-list"></div>
+        <div class="layout-actions">
+          <button type="button" id="layout-edit" class="stamp ghost-stamp">Arrange widgets</button>
+          <button type="button" id="layout-reset" class="stamp ghost-stamp">Reset positions</button>
+        </div>
+      </section>
+
+      <section id="settings-section-clock">
         <h3>Clock</h3>
+        <label class="range-label" for="first-name">First name</label>
+        <input
+          id="first-name"
+          type="text"
+          maxlength="24"
+          autocomplete="given-name"
+          placeholder="Shown in the greeting"
+        />
         <div class="choice-row">
           <label class="choice"
             ><input type="radio" name="clock-format" value="24" /> 24h</label
@@ -251,7 +281,7 @@
         </div>
       </section>
 
-      <section>
+      <section id="settings-section-search">
         <h3>Search</h3>
         <select id="search-engine">
           <option value="google">Google</option>
@@ -261,7 +291,7 @@
         </select>
       </section>
 
-      <section>
+      <section id="settings-section-overlay">
         <h3>Overlay</h3>
         <label class="range-label" for="overlay-strength"
           >Vignette <span id="overlay-value">45</span></label
@@ -279,13 +309,13 @@
         >
       </section>
 
-      <section>
+      <section id="settings-section-shortcuts">
         <h3>Shortcuts</h3>
-        <p class="hint">Drag tiles to reorder. Click a row to edit.</p>
+        <p class="hint">Drag rows to reorder. Click a row to edit. Add as many as you like.</p>
         <div id="shortcut-editor-list" class="shortcut-editor-list"></div>
       </section>
 
-      <p class="hint keys-hint">Press <kbd>?</kbd> or the corner mark for keyboard legend.</p>
+      <p class="hint keys-hint">Press <kbd>?</kbd> or the corner mark for the keyboard legend and tutorial.</p>
     </aside>
 
     <div
@@ -311,7 +341,7 @@
       </div>
     </div>
 
-    <div id="keys-overlay" class="help hidden" role="dialog" aria-label="Keyboard">
+    <div id="keys-overlay" class="help hidden" role="dialog" aria-label="Keyboard and tutorial">
       <p class="kicker"><span class="jp-label">鍵</span> Keys</p>
       <h2>Move without the mouse</h2>
       <ul>
@@ -336,12 +366,16 @@
           <span>Notes</span>
         </li>
         <li>
+          <span class="keys"><kbd>G</kbd></span>
+          <span>Google apps</span>
+        </li>
+        <li>
           <span class="keys"><kbd>S</kbd></span>
           <span>Settings</span>
         </li>
         <li>
-          <span class="keys"><kbd>1</kbd><span class="sep">–</span><kbd>6</kbd></span>
-          <span>Open shortcut</span>
+          <span class="keys"><kbd>1</kbd><span class="sep">–</span><kbd>9</kbd></span>
+          <span>Open shortcut 1–9</span>
         </li>
         <li>
           <span class="keys"><kbd>?</kbd></span>
@@ -352,6 +386,35 @@
           <span>Close search / overlays</span>
         </li>
       </ul>
+      <div class="help-tour">
+        <p class="hint">A walkthrough of every widget, setting, and key, pointed at the real controls.</p>
+        <button type="button" id="tour-start" class="stamp">Start tutorial</button>
+      </div>
+    </div>
+
+    <div id="tour" class="tour hidden is-center" hidden>
+      <div id="tour-spotlight" class="tour-spotlight" aria-hidden="true"></div>
+      <div
+        id="tour-card"
+        class="tour-card is-center"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tour-title"
+        aria-describedby="tour-body"
+      >
+        <p class="kicker"><span class="jp-label">導</span> Tutorial</p>
+        <h2 id="tour-title">This tab is yours</h2>
+        <p id="tour-body"></p>
+        <div id="tour-keys" class="tour-keys hidden"></div>
+        <div class="tour-nav">
+          <span id="tour-progress">1 / 1</span>
+          <div class="tour-actions">
+            <button type="button" id="tour-skip" class="ghost">Skip</button>
+            <button type="button" id="tour-back" class="stamp ghost-stamp">Back</button>
+            <button type="button" id="tour-next" class="stamp">Next</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="js/nowplaying-island.js"></script>

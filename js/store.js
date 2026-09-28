@@ -1,10 +1,10 @@
 const DEFAULT_SHORTCUTS = [
-  { label: "YouTube", url: "https://www.youtube.com", jp: "動画" },
-  { label: "GitHub", url: "https://github.com", jp: "源" },
-  { label: "Reddit", url: "https://www.reddit.com", jp: "議" },
-  { label: "Netflix", url: "https://www.netflix.com", jp: "映" },
-  { label: "Gmail", url: "https://mail.google.com", jp: "便" },
-  { label: "Discord", url: "https://discord.com", jp: "話" },
+  { label: "YouTube", url: "https://www.youtube.com" },
+  { label: "GitHub", url: "https://github.com" },
+  { label: "Reddit", url: "https://www.reddit.com" },
+  { label: "Netflix", url: "https://www.netflix.com" },
+  { label: "Gmail", url: "https://mail.google.com" },
+  { label: "Discord", url: "https://discord.com" },
 ];
 
 export const SEARCH_ENGINES = {
@@ -14,16 +14,45 @@ export const SEARCH_ENGINES = {
   github: "https://github.com/search?q=",
 };
 
+export const DEFAULT_FEATURES = {
+  island: true,
+  clock: true,
+  greeting: true,
+  shortcuts: true,
+  quotes: true,
+  notes: true,
+  speed: true,
+  googleDock: true,
+};
+
+export const FEATURE_OPTIONS = [
+  { id: "island", label: "Media island" },
+  { id: "clock", label: "Clock" },
+  { id: "greeting", label: "Greeting" },
+  { id: "shortcuts", label: "Shortcuts" },
+  { id: "quotes", label: "Quotes" },
+  { id: "notes", label: "Notes" },
+  { id: "speed", label: "Speed test" },
+  { id: "googleDock", label: "Google dock" },
+];
+
+export const MAX_SHORTCUTS = 32;
+
+export const LAYOUT_WIDGETS = ["greeting", "clock", "speed", "shortcuts", "quotes", "notes", "island"];
+
 export const DEFAULTS = {
   clockFormat: "24",
   searchEngine: "google",
   overlayStrength: 45,
   grain: true,
   shortcuts: DEFAULT_SHORTCUTS,
+  features: { ...DEFAULT_FEATURES },
+  layout: {},
   wallpaperHistory: [],
   quoteHistory: [],
   notes: [],
   pinnedNoteId: "",
+  firstName: "",
 };
 
 const LOCAL_KEY = "noir-pulse-settings";
@@ -51,7 +80,7 @@ export async function loadSettings() {
     /* ignore */
   }
 
-  return { ...DEFAULTS, shortcuts: DEFAULT_SHORTCUTS.map((s) => ({ ...s })) };
+  return { ...DEFAULTS, shortcuts: DEFAULT_SHORTCUTS.map((s) => ({ ...s })), features: { ...DEFAULT_FEATURES } };
 }
 
 export async function saveSettings(partial) {
@@ -68,18 +97,50 @@ export async function saveSettings(partial) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify({ ...current, ...partial }));
 }
 
+function normalizeFeatures(raw) {
+  const features = { ...DEFAULT_FEATURES };
+  if (raw && typeof raw === "object") {
+    for (const key of Object.keys(DEFAULT_FEATURES)) {
+      if (raw[key] === false) {
+        features[key] = false;
+      }
+    }
+  }
+  return features;
+}
+
+function clamp01(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return Math.min(0.92, Math.max(0, n));
+}
+
+function normalizeLayout(raw) {
+  const layout = {};
+  if (!raw || typeof raw !== "object") {
+    return layout;
+  }
+  for (const id of LAYOUT_WIDGETS) {
+    const pos = raw[id];
+    if (pos && Number.isFinite(Number(pos.x)) && Number.isFinite(Number(pos.y))) {
+      layout[id] = { x: clamp01(pos.x), y: clamp01(pos.y) };
+    }
+  }
+  return layout;
+}
+
 function normalize(settings) {
   const shortcuts = Array.isArray(settings.shortcuts)
-    ? settings.shortcuts.slice(0, 6).map((item) => ({
-        label: String(item.label || "").slice(0, 24),
-        url: String(item.url || ""),
-        jp: String(item.jp || ""),
-      }))
+    ? settings.shortcuts
+        .map((item) => ({
+          label: String(item.label || "").slice(0, 24),
+          url: String(item.url || ""),
+        }))
+        .filter((item) => item.url)
+        .slice(0, MAX_SHORTCUTS)
     : DEFAULT_SHORTCUTS.map((s) => ({ ...s }));
-
-  while (shortcuts.length < 6) {
-    shortcuts.push({ label: "", url: "", jp: "" });
-  }
 
   const overlay = Number(settings.overlayStrength);
   return {
@@ -92,6 +153,8 @@ function normalize(settings) {
       : 45,
     grain: settings.grain !== false,
     shortcuts,
+    features: normalizeFeatures(settings.features),
+    layout: normalizeLayout(settings.layout),
     wallpaperHistory: Array.isArray(settings.wallpaperHistory)
       ? settings.wallpaperHistory.slice(0, 8)
       : [],
@@ -100,6 +163,7 @@ function normalize(settings) {
       : [],
     notes: Array.isArray(settings.notes)
       ? settings.notes
+          .filter((note) => !String(note.id || "").startsWith("keep:"))
           .slice(0, 80)
           .map((note) => ({
             id: String(note.id || ""),
@@ -111,7 +175,14 @@ function normalize(settings) {
           }))
           .filter((note) => note.id && (note.text || note.title))
       : [],
-    pinnedNoteId: String(settings.pinnedNoteId || ""),
+    pinnedNoteId: String(settings.pinnedNoteId || "").startsWith("keep:")
+      ? ""
+      : String(settings.pinnedNoteId || ""),
+    firstName: String(settings.firstName || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(" ")[0]
+      .slice(0, 24),
   };
 }
 
@@ -121,4 +192,16 @@ export function applyAppearance(settings) {
     String(settings.overlayStrength / 100)
   );
   document.body.classList.toggle("grain-off", !settings.grain);
+}
+
+export function applyFeatures(features) {
+  const next = normalizeFeatures(features);
+  document.body.classList.toggle("hide-island", !next.island);
+  document.body.classList.toggle("hide-clock", !next.clock);
+  document.body.classList.toggle("hide-greeting", !next.greeting);
+  document.body.classList.toggle("hide-shortcuts", !next.shortcuts);
+  document.body.classList.toggle("hide-quotes", !next.quotes);
+  document.body.classList.toggle("hide-notes", !next.notes);
+  document.body.classList.toggle("hide-speed", !next.speed);
+  document.body.classList.toggle("hide-google-dock", !next.googleDock);
 }

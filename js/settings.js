@@ -1,4 +1,4 @@
-import { applyAppearance } from "./store.js";
+import { applyAppearance, applyFeatures, FEATURE_OPTIONS } from "./store.js";
 
 export function initSettings({
   settings,
@@ -21,6 +21,39 @@ export function initSettings({
   overlay.value = String(settings.overlayStrength);
   overlayValue.textContent = String(settings.overlayStrength);
   grain.checked = settings.grain;
+
+  const firstNameInput = document.getElementById("first-name");
+  firstNameInput.value = settings.firstName || "";
+  firstNameInput.addEventListener("change", async () => {
+    const name = firstNameInput.value.replace(/\s+/g, " ").trim().split(" ")[0].slice(0, 24);
+    firstNameInput.value = name;
+    settings.firstName = name;
+    clock.setFirstName(name);
+  });
+  chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area === "local" && changes.firstName) {
+      firstNameInput.value = String(changes.firstName.newValue || "");
+    }
+  });
+
+  const featureList = document.getElementById("feature-list");
+  featureList.replaceChildren();
+  for (const option of FEATURE_OPTIONS) {
+    const label = document.createElement("label");
+    label.className = "choice";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.feature = option.id;
+    input.checked = settings.features[option.id] !== false;
+    const text = document.createTextNode(option.label);
+    label.append(input, text);
+    input.addEventListener("change", async () => {
+      settings.features = { ...settings.features, [option.id]: input.checked };
+      applyFeatures(settings.features);
+      await saveSettings({ features: settings.features });
+    });
+    featureList.append(label);
+  }
 
   for (const radio of document.querySelectorAll('input[name="clock-format"]')) {
     radio.checked = radio.value === settings.clockFormat;

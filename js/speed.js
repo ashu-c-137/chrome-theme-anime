@@ -10,27 +10,37 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function formatMbps(value) {
+function formatMbpsNumber(value, { live = false } = {}) {
   if (!Number.isFinite(value) || value <= 0) {
-    return "—";
+    return live ? "" : "—";
   }
   if (value >= 100) {
     return String(Math.round(value));
   }
-  if (value >= 10) {
-    return value.toFixed(1);
+  if (!live && value < 10) {
+    return value.toFixed(2);
   }
-  return value.toFixed(2);
+  return value.toFixed(1);
+}
+
+function withUnit(value, unit) {
+  return value ? `${value}\u00a0${unit}` : value;
+}
+
+function formatMbps(value, options) {
+  const number = formatMbpsNumber(value, options);
+  return number === "—" ? "—" : withUnit(number, "Mbps");
 }
 
 function formatLiveMbps(value) {
+  return formatMbps(value, { live: true });
+}
+
+function formatPing(value, { live = false } = {}) {
   if (!Number.isFinite(value) || value <= 0) {
-    return "";
+    return live ? "" : "—";
   }
-  if (value >= 100) {
-    return String(Math.round(value));
-  }
-  return value.toFixed(1);
+  return withUnit(String(Math.round(value)), "ms");
 }
 
 function mbps(bytes, elapsedMs) {
@@ -483,14 +493,14 @@ export function initSpeed() {
       startLive({
         active: "ping",
         textEl: pingEl,
-        format: (value) => (Number.isFinite(value) && value > 0 ? String(Math.round(value)) : ""),
+        format: (value) => formatPing(value, { live: true }),
       });
       const ping = await measurePing(controller.signal, ({ instant, median: pingMs, t }) => {
         pushTarget({ instant, average: pingMs, t });
       });
       stopLive();
       Object.keys(lines).forEach(clearSeries);
-      setText(pingEl, Number.isFinite(ping) ? String(Math.round(ping)) : "—");
+      setText(pingEl, formatPing(ping));
       kicker.textContent = "Speed";
       root.classList.remove("is-running", "is-down", "is-up", "is-ping");
       root.classList.add("is-done");

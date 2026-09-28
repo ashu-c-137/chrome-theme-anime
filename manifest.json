@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "New Tab",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "Random local wallpapers. Dark new tab. Blocks ads.",
   "chrome_url_overrides": {
     "newtab": "newtab.html"

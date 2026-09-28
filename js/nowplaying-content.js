@@ -2,8 +2,6 @@ const TYPE = "noir-pulse-now-playing";
 const KEY = "nowPlaying";
 const SOURCE = `${location.origin}${location.pathname}`;
 
-let lastPlaying = false;
-
 function storage() {
   return globalThis.chrome?.storage?.session || globalThis.chrome?.storage?.local || null;
 }
@@ -29,6 +27,7 @@ async function publish(data) {
     album: String(data.album || ""),
     artwork: String(data.artwork || ""),
     playing: Boolean(data.playing),
+    kind: data.kind === "video" ? "video" : "music",
     source: SOURCE,
     url: location.href,
     hostname: location.hostname,
@@ -65,6 +64,7 @@ async function publish(data) {
       ...payload,
       tabId: existing?.tabId,
       windowId: existing?.windowId,
+      kind: payload.kind || existing?.kind,
     });
     return;
   }
@@ -80,6 +80,7 @@ async function publish(data) {
       pageTitle: payload.pageTitle || existing?.pageTitle,
       hostname: payload.hostname || existing?.hostname,
       source: SOURCE,
+      kind: existing?.kind || payload.kind,
       updatedAt: Date.now(),
     });
   }
@@ -97,10 +98,8 @@ window.addEventListener("message", (event) => {
     return;
   }
   const data = event.data.data;
-  const playing = Boolean(data.playing);
-  if (!playing && !lastPlaying && data.heartbeat) {
+  if (data.heartbeat) {
     return;
   }
-  lastPlaying = playing;
   publish(data);
 });
