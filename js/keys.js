@@ -11,11 +11,8 @@ function typingInField(target) {
   );
 }
 
-export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout, tour }) {
+export function initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout }) {
   window.addEventListener("keydown", (event) => {
-    if (tour?.isActive()) {
-      return;
-    }
     const field = typingInField(event.target);
 
     if (event.key === "Escape") {

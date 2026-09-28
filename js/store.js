@@ -15,7 +15,6 @@ export const SEARCH_ENGINES = {
 };
 
 export const DEFAULT_FEATURES = {
-  island: true,
   clock: true,
   greeting: true,
   shortcuts: true,
@@ -26,7 +25,6 @@ export const DEFAULT_FEATURES = {
 };
 
 export const FEATURE_OPTIONS = [
-  { id: "island", label: "Media island" },
   { id: "clock", label: "Clock" },
   { id: "greeting", label: "Greeting" },
   { id: "shortcuts", label: "Shortcuts" },
@@ -38,7 +36,7 @@ export const FEATURE_OPTIONS = [
 
 export const MAX_SHORTCUTS = 32;
 
-export const LAYOUT_WIDGETS = ["greeting", "clock", "speed", "shortcuts", "quotes", "notes", "island"];
+export const LAYOUT_WIDGETS = ["greeting", "clock", "speed", "shortcuts", "quotes", "notes"];
 
 export const DEFAULTS = {
   clockFormat: "24",
@@ -196,7 +194,6 @@ export function applyAppearance(settings) {
 
 export function applyFeatures(features) {
   const next = normalizeFeatures(features);
-  document.body.classList.toggle("hide-island", !next.island);
   document.body.classList.toggle("hide-clock", !next.clock);
   document.body.classList.toggle("hide-greeting", !next.greeting);
   document.body.classList.toggle("hide-shortcuts", !next.shortcuts);

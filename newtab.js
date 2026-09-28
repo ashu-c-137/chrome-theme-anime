@@ -10,7 +10,6 @@ import { initSettings } from "./js/settings.js";
 import { initKeys } from "./js/keys.js";
 import { initGoogleDock } from "./js/google-dock.js";
 import { initLayout } from "./js/layout.js";
-import { initTour } from "./js/tour.js";
 
 const settings = await loadSettings();
 applyAppearance(settings);
@@ -42,6 +41,5 @@ const settingsUi = initSettings({
 });
 const googleDock = initGoogleDock();
 const layout = initLayout({ settings, saveSettings, settingsUi });
-const tour = initTour({ settingsUi, layout });
 
-initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout, tour });
+initKeys({ wallpaper, search, settingsUi, shortcuts, quotes, notes, speed, googleDock, layout });

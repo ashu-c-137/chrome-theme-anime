@@ -138,7 +138,7 @@
           Folder
         </button>
         <div class="controls-stack">
-          <button type="button" id="open-keys" class="keys-fab" title="Keyboard shortcuts and tutorial" aria-label="Keyboard shortcuts and tutorial" aria-expanded="false">
+          <button type="button" id="open-keys" class="keys-fab" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false">
             ?
           </button>
           <button type="button" id="open-settings" title="Settings">
@@ -315,7 +315,7 @@
         <div id="shortcut-editor-list" class="shortcut-editor-list"></div>
       </section>
 
-      <p class="hint keys-hint">Press <kbd>?</kbd> or the corner mark for the keyboard legend and tutorial.</p>
+      <p class="hint keys-hint">Press <kbd>?</kbd> or the corner mark for the keyboard legend.</p>
     </aside>
 
     <div
@@ -341,7 +341,7 @@
       </div>
     </div>
 
-    <div id="keys-overlay" class="help hidden" role="dialog" aria-label="Keyboard and tutorial">
+    <div id="keys-overlay" class="help hidden" role="dialog" aria-label="Keyboard shortcuts">
       <p class="kicker"><span class="jp-label">鍵</span> Keys</p>
       <h2>Move without the mouse</h2>
       <ul>
@@ -386,38 +386,8 @@
           <span>Close search / overlays</span>
         </li>
       </ul>
-      <div class="help-tour">
-        <p class="hint">A walkthrough of every widget, setting, and key, pointed at the real controls.</p>
-        <button type="button" id="tour-start" class="stamp">Start tutorial</button>
-      </div>
     </div>
 
-    <div id="tour" class="tour hidden is-center" hidden>
-      <div id="tour-spotlight" class="tour-spotlight" aria-hidden="true"></div>
-      <div
-        id="tour-card"
-        class="tour-card is-center"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tour-title"
-        aria-describedby="tour-body"
-      >
-        <p class="kicker"><span class="jp-label">導</span> Tutorial</p>
-        <h2 id="tour-title">This tab is yours</h2>
-        <p id="tour-body"></p>
-        <div id="tour-keys" class="tour-keys hidden"></div>
-        <div class="tour-nav">
-          <span id="tour-progress">1 / 1</span>
-          <div class="tour-actions">
-            <button type="button" id="tour-skip" class="ghost">Skip</button>
-            <button type="button" id="tour-back" class="stamp ghost-stamp">Back</button>
-            <button type="button" id="tour-next" class="stamp">Next</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script src="js/nowplaying-island.js"></script>
     <script type="module" src="newtab.js"></script>
   </body>
 </html>
